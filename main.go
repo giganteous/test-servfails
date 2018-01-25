@@ -13,15 +13,15 @@ import (
 )
 
 var (
-	cache   = inmem.NewLocked(1000)
-	unbound = "194.109.9.99:53"
+	cache      = inmem.NewLocked(1000)
+	replayhost = "8.8.8.8:53"
 )
 
 func main() {
-	flag.StringVar(&unbound, "unbound", unbound, "Nameserver address to use for queries")
+	flag.StringVar(&replayhost, "replayhost", replayhost, "Nameserver address to replay qname's of servfails to")
 	flag.Parse()
 
-	s := NewResolver(unbound)
+	s := NewResolver(replayhost)
 	scanner := bufio.NewScanner(os.Stdin)
 	// Dec 08 15:11:43 resolver-beta.xs4all.net pdns_recursor[17327]: Answer to 0ei-u82fcf4f1-c165-s1512742299-i00000000.eue.dotnxdomain.net|A for [2001:888:0:104::70]:49913 validates as Bogus
 	for scanner.Scan() {
@@ -64,14 +64,14 @@ func NewResolver(s string) *Resolver {
 }
 
 func (r *Resolver) handle(qname string) {
-	qname = dns.Fqdn(qname)
+	qname = strings.ToLower(dns.Fqdn(qname))
 
 	if _, ok := cache.Get(qname); !ok {
 		in := r.lookup(qname)
 		cache.Add(qname, in, time.Now().Add(time.Hour))
 
 		if in != nil && in.Rcode != dns.RcodeServerFailure {
-			fmt.Printf(">>>>: %s, unbound says ok\n", qname)
+			fmt.Printf(">>>>: %s, %s says ok\n", qname, replayhost)
 		}
 	}
 }
